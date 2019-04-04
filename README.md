@@ -49,8 +49,7 @@ W związku z tym każda instancja klasy DistributedMap powinna mieć własną ko
 ```
 lab3 - RabbitMQ
 ```
-Scenariusz: Obsługujemy oddział
-ortopedyczny w szpitalu
+Scenariusz: Obsługujemy oddział ortopedyczny w szpitalu
 • Mamy 3 typy użytkowników:
 – Lekarz (zleca badania, dostaje wyniki)
 – Technik (wykonuje badania, wysyła wyniki)
