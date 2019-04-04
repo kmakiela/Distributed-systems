@@ -1,5 +1,5 @@
 defmodule Doctor do
-  def accept_patient channel, doc_to_tech_ex, doc_name do
+  def accept_patient channel, doc_to_tech_ex, to_admin_ex, doc_name do
     injury_type = IO.gets("Type in: injury type\n") |> String.trim()
     case injury_type do
       "knee" ->
@@ -10,24 +10,28 @@ defmodule Doctor do
         :ok
       _->
         IO.puts("Injury type can only be knee, elbow or hip")
-        accept_patient(channel, doc_to_tech_ex, doc_name)
+        accept_patient(channel, doc_to_tech_ex, to_admin_ex, doc_name)
     end
     name = IO.gets("Type in: patient's name\n") |> String.trim()
     AMQP.Basic.publish(channel, doc_to_tech_ex, injury_type, "#{doc_name} #{name}")
+    AMQP.Basic.publish(channel, to_admin_ex, "log", "Doctor #{doc_name} sends patient #{name} with #{injury_type} injury for examination")
     IO.puts("Sent message about #{name} with #{injury_type} injury")
     receive do
       {:basic_deliver, payload, _meta} ->
         IO.puts "#{payload}'s examination was done"
     end
-    accept_patient(channel, doc_to_tech_ex, doc_name)
+    accept_patient(channel, doc_to_tech_ex, to_admin_ex, doc_name)
   end
 end
 
 {:ok, connection} = AMQP.Connection.open
 {:ok, channel} = AMQP.Channel.open(connection)
 AMQP.Basic.qos(channel, prefetch_count: 1)
+
 doc_to_tech_ex = "doc_to_tech"
 tech_to_doc_ex = "tech_to_doc"
+to_admin_ex = "to_admin"
+AMQP.Exchange.declare(channel, to_admin_ex, :direct)
 AMQP.Exchange.declare(channel, doc_to_tech_ex, :direct)
 AMQP.Exchange.declare(channel, tech_to_doc_ex, :direct)
 
@@ -44,5 +48,9 @@ doc_name = IO.gets("Type in: name of the doctor\n") |> String.trim()
 AMQP.Queue.declare(channel, doc_name)
 AMQP.Queue.bind(channel, doc_name, tech_to_doc_ex, routing_key: doc_name)
 AMQP.Basic.consume(channel, doc_name, nil, no_ack: true)
-
-Doctor.accept_patient(channel, doc_to_tech_ex, doc_name)
+#task = Task.start(fn -> receive do
+#      {:basic_deliver, payload, _meta} ->
+#        IO.puts :stdio, "#{payload}'s examination was done"
+#    end
+#  end)
+Doctor.accept_patient(channel, doc_to_tech_ex, to_admin_ex, doc_name)
