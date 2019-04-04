@@ -25,17 +25,19 @@ defmodule Technician do
     end
     AMQP.Queue.declare(channel, "q_#{injury_type1}")
     AMQP.Queue.declare(channel, "q_#{injury_type2}")
-    AMQP.Basic.consume(channel, "q_#{injury_type1}", nil)
-    AMQP.Basic.consume(channel, "q_#{injury_type2}", nil)
-
-
+    AMQP.Basic.consume(channel, "q_#{injury_type1}", nil, no_ack: true)
+    AMQP.Basic.consume(channel, "q_#{injury_type2}", nil, no_ack: true)
   end
 
-  def wait_for_messages do
+  def wait_for_messages channel, tech_to_doc_ex do
     receive do
       {:basic_deliver, payload, _meta} ->
-        IO.puts "Received patient #{payload}"
-        wait_for_messages()
+        [doc_name|patient_name] = payload |> String.trim() |> String.split()
+        IO.puts "Received patient #{patient_name} from doctor #{doc_name}"
+        AMQP.Queue.declare(channel, doc_name)
+        AMQP.Basic.publish(channel, tech_to_doc_ex, doc_name, patient_name)
+        IO.puts "Sent response to doctor #{doc_name}"
+        wait_for_messages(channel, tech_to_doc_ex)
     end
 
   end
@@ -43,8 +45,10 @@ defmodule Technician do
 end
 {:ok, connection} = AMQP.Connection.open
 {:ok, channel} = AMQP.Channel.open(connection)
+AMQP.Basic.qos(channel, prefetch_count: 1)
 doc_to_tech_ex = "doc_to_tech"
+tech_to_doc_ex = "tech_to_doc"
 AMQP.Exchange.declare(channel, doc_to_tech_ex, :direct)
 
 Technician.register(channel, doc_to_tech_ex)
-Technician.wait_for_messages()
+Technician.wait_for_messages(channel, tech_to_doc_ex)
