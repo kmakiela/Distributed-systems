@@ -41,6 +41,8 @@ defmodule Admin do
     AMQP.Queue.bind(channel, "elbow", "doc_to_tech", routing_key: "elbow.#")
     AMQP.Queue.bind(channel, "hip", "doc_to_tech", routing_key: "hip.#")
     AMQP.Queue.bind(channel, "logs", "doc_to_tech", routing_key: "#.log")
+    AMQP.Queue.bind(channel, "logs", "tech_to_doc", routing_key: "#.log")
+
     # admin work
     {:ok, tag} = AMQP.Basic.consume(channel, "logs", nil, no_ack: true)
 
@@ -53,7 +55,7 @@ defmodule Admin do
   end
 
   def handle_info({:basic_deliver, payload, _meta}, state) do
-    IO.puts("--LOG--ADMIN #{inspect self()}-- " <> payload)
+    IO.puts("-------LOG--ADMIN--#{inspect self()}------- " <> payload)
 
     {:noreply, state}
   end
@@ -73,10 +75,10 @@ defmodule Admin do
       {:basic_cancel_ok, %{consumer_tag: ^consumer_tag}} ->
         {:ok, consumer_tag}
     end
-    AMQP.Queue.delete(channel, "knee")
-    AMQP.Queue.delete(channel, "elbow")
-    AMQP.Queue.delete(channel, "hip")
-    AMQP.Queue.delete(channel, "logs")
+    AMQP.Queue.delete(state.channel, "knee")
+    AMQP.Queue.delete(state.channel, "elbow")
+    AMQP.Queue.delete(state.channel, "hip")
+    AMQP.Queue.delete(state.channel, "logs")
 
     AMQP.Channel.close(state.channel)
     AMQP.Connection.close(state.connection)
