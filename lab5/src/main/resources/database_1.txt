@@ -1,0 +1,3 @@
+book1:10 PLN
+book2:20 PLN
+book3:30 PLN
